@@ -1,0 +1,27 @@
+[Unit]
+Description=Encrypt the copies of reps and the git repos that go to Proton Drive
+ConditionPathExists=/etc/reps/offsite.key
+
+[Service]
+Type=oneshot
+# Root only to read: reps' backups and bo's repos. It has no network.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+LoadCredential=offsite.key:/etc/reps/offsite.key
+ExecStart=/usr/bin/python3 -I /opt/reps-offsite/reps_offsite.py pack
+UMask=0027
+ProtectSystem=strict
+ReadWritePaths=/var/lib/reps-outbox
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX

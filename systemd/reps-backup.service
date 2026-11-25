@@ -1,0 +1,17 @@
+[Unit]
+Description=Copy reps' database into its backups folder
+
+[Service]
+Type=oneshot
+User=reps
+Group=reps
+ExecStart=/opt/reps/bin/reps backup
+StateDirectory=reps
+StateDirectoryMode=0700
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX

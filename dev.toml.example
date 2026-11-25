@@ -1,0 +1,14 @@
+# For development: plain HTTP on localhost, with a made-up shadow file.
+[web]
+host = "localhost"
+bind = "127.0.0.1"
+port = 8091
+
+[web.users]
+al = "al"
+bo = "bo-web"
+
+[paths]
+state_dir = "/tmp/reps-dev"
+tls_dir = ""
+shadow_file = "/tmp/reps-dev/shadow"

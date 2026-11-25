@@ -1,0 +1,43 @@
+[Unit]
+Description=Send the encrypted copies to Proton Drive
+After=network-online.target reps-offsite-pack.service
+Wants=network-online.target reps-offsite-pack.service
+ConditionPathExists=/opt/reps-offsite/proton-drive
+ConditionPathExists=/var/lib/reps-offsite/password-store
+
+[Service]
+Type=oneshot
+User=reps-offsite
+Group=reps-offsite
+Environment=HOME=/var/lib/reps-offsite PASSWORD_STORE_DIR=/var/lib/reps-offsite/password-store
+Environment=GNUPGHOME=/var/lib/reps-offsite/gnupg PROTON_DRIVE_CREDENTIALS_STORE=pass
+Environment=PROTON_DRIVE_CACHE_DIR=/var/lib/reps-offsite/drive PROTON_DRIVE_LOG_LEVEL=WARNING
+ExecStart=/usr/bin/python3 -I /opt/reps-offsite/reps_offsite.py send
+TimeoutStartSec=45min
+UMask=0027
+StateDirectory=reps-offsite
+StateDirectoryMode=0700
+ProtectSystem=strict
+ReadWritePaths=/var/lib/reps-outbox
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+InaccessiblePaths=-/etc/homehub-router -/etc/pihole -/var/lib/homehub-router -/var/lib/reps -/etc/reps
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+# The internet and the name server, but nothing else in the house.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16
+IPAddressAllow=localhost 10.7.0.1

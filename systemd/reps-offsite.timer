@@ -1,0 +1,9 @@
+[Unit]
+Description=Copy reps and the git repos to Proton Drive every night
+
+[Timer]
+OnCalendar=*-*-* 03:25:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

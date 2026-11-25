@@ -1,0 +1,43 @@
+[Unit]
+Description=Workouts from a description, by asking Claude, for reps
+After=network-online.target
+Wants=network-online.target
+# Until there is a key, there is nothing to run.
+ConditionPathExists=/etc/reps/claude.key
+
+[Service]
+User=reps-describe
+# reps' group, to share the socket; its other files are out of reach below.
+Group=reps
+LoadCredential=claude.key:/etc/reps/claude.key
+RuntimeDirectory=reps-describe
+RuntimeDirectoryMode=0750
+ExecStart=/opt/reps-describe/bin/python /opt/reps-describe/reps_describe.py
+Restart=on-failure
+RestartSec=10
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+InaccessiblePaths=-/etc/homehub-router -/etc/pihole -/var/lib/homehub-router -/var/lib/reps -/etc/reps
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+# The internet and the name server, but nothing else in the house.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16
+IPAddressAllow=localhost 10.7.0.1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,43 @@
+[Unit]
+Description=reps workout coach (https://reps)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=reps
+Group=reps
+# To check passwords against /etc/shadow, and nothing else.
+SupplementaryGroups=shadow
+# "+" runs this one step as root: it reads the CA key, which reps never may.
+ExecStartPre=+/etc/reps/make-cert.sh
+ExecStart=/opt/reps/bin/reps serve
+LoadCredential=heart.key:/etc/reps/heart.key
+Restart=on-failure
+RestartSec=5
+StateDirectory=reps
+StateDirectoryMode=0700
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+InaccessiblePaths=-/etc/homehub-router -/etc/pihole -/var/lib/homehub-router
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+
+[Install]
+WantedBy=multi-user.target

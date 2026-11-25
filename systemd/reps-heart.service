@@ -1,0 +1,38 @@
+[Unit]
+Description=Heart rate monitors over Bluetooth, for reps
+After=bluetooth.service reps.service
+Wants=bluetooth.service
+
+[Service]
+User=reps-heart
+Group=reps-heart
+LoadCredential=heart.key:/etc/reps/heart.key
+ExecStart=/opt/reps-heart/bin/python /opt/reps-heart/reps_heart.py
+Restart=on-failure
+RestartSec=10
+# The radio belongs to bluetoothd; this only talks to it over D-Bus, and to reps.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+InaccessiblePaths=-/etc/homehub-router -/etc/pihole -/var/lib/homehub-router -/var/lib/reps
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost 10.7.0.1 10.7.0.2
+
+[Install]
+WantedBy=multi-user.target
