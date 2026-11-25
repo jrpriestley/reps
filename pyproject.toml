@@ -1,6 +1,6 @@
 [project]
 name = "reps"
-version = "0.21.0"
+version = "0.22.0"
 description = "A home workout coach for two (runs on homehub)"
 readme = "README.md"
 requires-python = ">=3.12"

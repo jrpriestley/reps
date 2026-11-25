@@ -21,8 +21,21 @@ ASSETS = {
 TABS = (("today", "/", "Today"), ("week", "/week", "Week"),
         ("history", "/history", "History"), ("me", "/me", "Me"))
 FONTS = ("ember-400", "ember-700", "ember-display-700")
-BARS = {"light": "#ffffff", "dark": "#141e1c"}  # --surface, for the browser's own bars
-THEMES = ("system", "light", "dark")
+# The themes, each its name and whether it's light or dark; System follows the device's.
+THEMES = {
+    "system": ("System", ""),
+    "light": ("Light", "light"),
+    "dark": ("Dark", "dark"),
+    "paper": ("Paper", "light"),
+    "ocean": ("Ocean", "light"),
+    "midnight": ("Midnight", "dark"),
+    "forest": ("Forest", "dark"),
+}
+# Each one's --surface, for the browser's own bars.
+BARS = {
+    "light": "#ffffff", "dark": "#141e1c", "paper": "#fbf8f1", "ocean": "#ffffff",
+    "midnight": "#121a2e", "forest": "#141d16",
+}
 
 
 @functools.cache

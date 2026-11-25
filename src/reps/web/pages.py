@@ -34,6 +34,7 @@ from reps.web.ui import (
     head,
     icon_of,
     off,
+    pill,
     reps_select,
     row,
     rows,
@@ -395,9 +396,26 @@ STEP_TITLES = {
 }
 
 
+def theme_page(person: str, chosen: str) -> str:
+    """Return the themes to choose from."""
+
+    def choice(theme: str) -> str:
+        name, kind = THEMES[theme]
+        state = pill("Chosen", "ok") if theme == chosen else '<span class="do">Use this</span>'
+        under = {"": "As this device is set", "light": "Light", "dark": "Dark"}[kind]
+        return row(name, under, field="theme", value=theme, right=state,
+                   css="chosen" if theme == chosen else "")
+
+    listed = rows([choice(theme) for theme in THEMES])
+    return framed("me", "Theme", (
+        f'{head("Theme", "Kept on this device", "/me")}'
+        f'<form method="post" action="/theme" class="setup">{listed}</form>'
+    ), person)
+
+
 def me_page(
     person: str, setup: dict, workouts: int, mix: str, spotify: bool, missing: list[str],
-    copied: float | None = None,
+    copied: float | None = None, theme: str = "system",
 ) -> str:
     covered = f"{len(setup['equipment'])} of {len(EQUIPMENT)} items"
     covered += f", no {', '.join(missing).lower()}" if missing else ""
@@ -430,12 +448,8 @@ def me_page(
         row("Spotify", "Linked" if spotify else "Not linked", href="/spotify", mark="link",
             tone="cooldown"),
     ]
-    themes = "".join(
-        f'<button name="theme" value="{theme}">{theme.title()}</button>' for theme in THEMES
-    )
     app = [
-        '<li><form method="post" action="/theme" class="segments themes">'
-        f"{themes}</form></li>",
+        row("Theme", THEMES[theme][0], href="/theme", mark="sun"),
         row("Export my data", "Everything, as a file", href="/export.json", mark="save"),
         *_copies_row(copied),
         '<li><form method="post" action="/logout"><button class="row">'

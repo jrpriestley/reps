@@ -287,9 +287,24 @@ def test_plain_http_on_the_https_port_is_sent_to_https(tmp_path):
 
 @pytest.mark.parametrize(("theme", "colours"), [
     ("system", {"#ffffff", "#141e1c"}), ("light", {"#ffffff"}), ("dark", {"#141e1c"}),
+    ("midnight", {"#121a2e"}), ("paper", {"#fbf8f1"}),
 ])
 def test_the_browsers_bars_match_the_theme(client, theme, colours):
     client.set_up()
     client.post("/theme", {"theme": theme})
     page = client.get("/")[1]
     assert set(re.findall(r'"theme-color" content="(#\w+)"', page)) == colours
+    scheme = {"system": "light dark", "light": "light", "paper": "light"}.get(theme, "dark")
+    assert f'name="color-scheme" content="{scheme}"' in page
+    assert ('data-theme="' in page) == (theme != "system")
+
+
+def test_themes_are_chosen_on_a_screen_of_their_own(client):
+    client.set_up()
+    assert "Theme" in client.get("/me")[1] and 'href="/theme"' in client.get("/me")[1]
+    client.post("/theme", {"theme": "forest"})
+    page = client.get("/theme")[1]
+    assert re.search(r'value="forest">.*?Chosen', page, re.S)
+    assert 'data-theme="forest"' in page and "Midnight" in page and "Ocean" in page
+    client.post("/theme", {"theme": "nonsense"})
+    assert "data-theme" not in client.get("/theme")[1]  # back to the device's own

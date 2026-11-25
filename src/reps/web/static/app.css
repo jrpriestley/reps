@@ -19,7 +19,7 @@
   --radius: 18px; --gap: 0.7rem; color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     --bg: #0b1211; --surface: #141e1c; --surface-2: #1d2a27; --text: #e9f1ee;
     --muted: #9db0aa; --border: #263531; --accent: #35c9b2; --on-accent: #04211c;
     --danger: #ff8a80; --ok-bg: #123a2b; --ok-fg: #8fe6bd;
@@ -29,7 +29,7 @@
     --shadow: 0 1px 2px rgb(0 0 0 / 45%); color-scheme: dark;
   }
 }
-:root[data-theme="dark"] {
+:root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="forest"]) {
   --bg: #0b1211; --surface: #141e1c; --surface-2: #1d2a27; --text: #e9f1ee;
   --muted: #9db0aa; --border: #263531; --accent: #35c9b2; --on-accent: #04211c;
   --danger: #ff8a80; --ok-bg: #123a2b; --ok-fg: #8fe6bd;
@@ -37,6 +37,26 @@
   --warmup: #f2a93b; --lifting: #35c9b2; --flatout: #ff6f61; --steady: #6ea8ff;
   --cooldown: #b794f6; --all: #9db0aa;
   --shadow: 0 1px 2px rgb(0 0 0 / 45%); color-scheme: dark;
+}
+/* More themes, each over the light or the dark one: Paper, warm; Ocean, cool; Midnight, deep
+   blue; Forest, deep green. */
+:root[data-theme="paper"] {
+  --bg: #f2ede3; --surface: #fbf8f1; --surface-2: #f1ebdf; --text: #2a241c; --muted: #6a6152;
+  --border: #e2d9c9; --accent: #a8461c; --hero-1: #c4561f; --hero-2: #6e2a0c;
+}
+:root[data-theme="ocean"] {
+  --bg: #e7f0f5; --surface: #ffffff; --surface-2: #eef5f9; --text: #0d2330; --muted: #4b6370;
+  --border: #d2e1e9; --accent: #0a6c8c; --hero-1: #0e86a8; --hero-2: #08425a;
+}
+:root[data-theme="midnight"] {
+  --bg: #090e1c; --surface: #121a2e; --surface-2: #1a2440; --text: #e6ebf7; --muted: #9aa6c4;
+  --border: #253152; --accent: #8db3ff; --on-accent: #0a1330; --hero-1: #2a4b9a;
+  --hero-2: #0d1a40;
+}
+:root[data-theme="forest"] {
+  --bg: #0b120d; --surface: #141d16; --surface-2: #1d2a20; --text: #e5eee6; --muted: #9fb2a3;
+  --border: #29372c; --accent: #7fd08e; --on-accent: #06200d; --hero-1: #2f7a43;
+  --hero-2: #0f2a17;
 }
 .warmup { --tone: var(--warmup); }
 .lifting { --tone: var(--lifting); }
@@ -219,8 +239,6 @@ a.row:hover, button.row:hover { background: var(--surface-2); }
   color: var(--muted); font-weight: 600; }
 .segments > [aria-current] { background: var(--surface); color: var(--text);
   box-shadow: var(--shadow); }
-.rows .themes { flex: 1; display: flex; margin: 0.5rem 0.9rem; }
-.themes button { flex: 1; }
 .tiles { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0.6rem; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow); padding: 0.5rem 0.9rem; line-height: 1.15; }
@@ -316,9 +334,9 @@ label.panel.pick { padding: 0.2rem 0.9rem; }
   width: 1.9rem; height: 1.9rem; border-radius: 50%; font-weight: 700; color: #ffffff;
   background: var(--tone, var(--accent)); }
 .guide p { margin: 0.6rem 0; }
-:root[data-theme="dark"] .guide li::before { color: #04211c; }
+:root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="forest"]) .guide li::before { color: var(--on-accent); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .guide li::before { color: #04211c; }
+  :root:not([data-theme]) .guide li::before { color: var(--on-accent); }
 }
 /* The workout builder: a chart from top to bottom */
 .builder { flex: 1; min-height: 0; display: flex; gap: 1rem; }
@@ -569,9 +587,9 @@ button.s-line, button.s-line:hover { min-height: 1.6rem; border: 0; background: 
 .s-step small { color: var(--muted); }
 .s-log { min-height: clamp(58px, 9vh, 80px); font-size: 1.3rem; width: 100%; border-radius: 18px; }
 body.session .s-log.primary, body.session .s-log.primary:hover { background: var(--tone); color: #ffffff; }
-:root[data-theme="dark"] body.session .s-log.primary { color: #04211c; }
+:root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="forest"]) body.session .s-log.primary { color: var(--on-accent); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) body.session .s-log.primary { color: #04211c; }
+  :root:not([data-theme]) body.session .s-log.primary { color: var(--on-accent); }
 }
 .s-run { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
 .s-run .s-pause { min-height: clamp(58px, 9vh, 80px); font-size: 1.3rem; border-radius: 18px; }
@@ -610,9 +628,9 @@ body.session:has(.s-live:not(.spare)) .s-head .heart { display: none; }
 body.session .s-head .heart { color: var(--flatout); font-size: 1.45rem; white-space: pre; }
 .s-phase.on { background: var(--flatout); color: #ffffff; }
 .s-phase.off { background: var(--steady); color: #ffffff; }
-:root[data-theme="dark"] .s-phase:is(.on, .off) { color: #10201d; }
+:root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="forest"]) .s-phase:is(.on, .off) { color: #10201d; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .s-phase:is(.on, .off) { color: #10201d; }
+  :root:not([data-theme]) .s-phase:is(.on, .off) { color: #10201d; }
 }
 .s-timer { min-height: 40px; display: flex; align-items: center; justify-content: center;
   gap: 0.75rem; font: 700 clamp(1.4rem, 4vh, 2.4rem)/1 "Amazon Ember Display", "Amazon Ember",

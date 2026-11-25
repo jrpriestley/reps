@@ -335,13 +335,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(data)
 
+    def theme(self) -> str:
+        """Return the theme this browser keeps."""
+        theme = self.cookie(THEME_COOKIE)
+        return theme if theme in THEMES else "system"
+
     def send_page(
         self, text: str, status: int = 200, headers: dict[str, str] | None = None
     ) -> None:
         theme = self.cookie(THEME_COOKIE)
-        if theme in {"light", "dark"}:
+        if theme in BARS:
             text = text.replace('<html lang="en">', f'<html lang="en" data-theme="{theme}">', 1)
-            text = text.replace('content="light dark"', f'content="{theme}"', 1)
+            text = text.replace('content="light dark"', f'content="{THEMES[theme][1]}"', 1)
             for colour in BARS.values():
                 text = text.replace(f'"theme-color" content="{colour}"',
                                     f'"theme-color" content="{BARS[theme]}"', 1)
@@ -439,12 +444,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.missing()
             else:
                 self.send_page(pages.past_session_page(person, store, row, "sure" in query))
+        elif path == "/theme":
+            self.send_page(pages.theme_page(person, self.theme()))
         elif path == "/me":
             mix = store.mix(person, setup["mix"])
             self.send_page(pages.me_page(
                 person, setup, len(store.workouts(person)), mix["name"] if mix else "",
                 bool(store.spotify_token(person)), pages.missing_patterns(store, person),
-                copied_at(self.app.config),
+                copied_at(self.app.config), self.theme(),
             ))
         elif path == "/setup":
             self.redirect("/me")
@@ -633,7 +640,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/theme":
             theme = form.get("theme", ["system"])[0]
             theme = theme if theme in THEMES else "system"
-            self.redirect("/me", f"{THEME_COOKIE}={theme}; Path=/; Max-Age=31536000; "
+            self.redirect("/theme", f"{THEME_COOKIE}={theme}; Path=/; Max-Age=31536000; "
                                  "Secure; SameSite=Lax")
         elif path == "/start":
             self.start(person, form)

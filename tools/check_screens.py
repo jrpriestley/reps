@@ -3,7 +3,7 @@
 Reports anything where the page scrolls, something is cut off, controls overlap or a target is
 too small. Screenshots go to $OUT. Frames marked .scroll may scroll inside.
 
-    OUT=/tmp/shots ~/.cache/reps-tools/v/bin/python tools/check_screens.py [light|dark]
+    OUT=/tmp/shots ~/.cache/reps-tools/v/bin/python tools/check_screens.py [light|dark|THEME]
 """
 
 import datetime as dt
@@ -378,13 +378,17 @@ def drag_about(page, app, base: str, workout: int, check) -> None:
 def main() -> None:
     out = Path(os.environ.get("OUT", "/tmp/reps-shots"))
     out.mkdir(parents=True, exist_ok=True)
+    # light or dark (the device's), or one of the themes chosen on the Theme screen
     scheme = sys.argv[1] if len(sys.argv) > 1 else "light"
     server, app = seeded()
     base = f"http://localhost:{server.server_address[1]}"
     with sync_playwright() as tool:
         browser = tool.chromium.launch()
-        context = browser.new_context(color_scheme=scheme, has_touch=True, device_scale_factor=2,
+        device = scheme if scheme in ("light", "dark") else "light"
+        context = browser.new_context(color_scheme=device, has_touch=True, device_scale_factor=2,
                                       viewport={"width": 375, "height": 553})
+        if scheme != device:
+            context.add_cookies([{"name": "reps_theme", "value": scheme, "url": base}])
         page = context.new_page()
         errors: list[str] = []
         page.on("pageerror", lambda problem: errors.append(str(problem)))
@@ -438,7 +442,7 @@ def main() -> None:
             (f"/music/{mix}", "mix"), (f"/music/{mix}/flatout", "stage"),
             (f"/music/{mix}/all", "stage-one"), (f"/music/{mix}/all/add", "playlists"),
             (f"/music/{mix}/settings", "mix-name"), ("/heart", "heart"), ("/spotify", "spotify"),
-            ("/spotify/devices", "devices"),
+            ("/spotify/devices", "devices"), ("/theme", "theme"),
         ):
             visit(path, name)
         page.goto(f"{base}/history?view=progress")
