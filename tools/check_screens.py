@@ -206,6 +206,41 @@ def check_chart(page) -> None:
     assert "week of" in page.inner_text("[data-words]")
 
 
+def check_simple(page, base, store, app, check) -> None:
+    """Simple: the list, ticked off a row at a time, with how it went offered and undone."""
+    store.save_person("bo", style="simple")
+    store.add_workout("bo", "For now", kept=False)
+    number = store.workouts("bo", every=True)
+    for_now = next(each for each in number if not each["kept"])
+    blocks = [{"options": ["rower"], "minutes": 10},
+              {"options": ["deadlift", "curl", "shoulder-press", "bent-row", "knee-raise",
+                           "split-squat"], "sets": 3}]
+    store.save_workout("bo", for_now | {"blocks": blocks})
+    store.pick_workout("bo", for_now["id"])
+    page.goto(f"{base}/?minutes=45")
+    page.wait_for_timeout(350)
+    check("today-simple")
+    page.click("button:has-text('Start')")
+    page.wait_for_selector(".simple .rows")
+    app.heart.reading("bo", 131)
+    page.wait_for_timeout(3400)
+    check("simple")
+    page.click(".simple .rows li:nth-child(2) .row")
+    assert page.query_selector(".went"), "no 'how was it'"
+    page.click(".went button:has-text('Easy')")
+    check("simple-ticked")
+    assert page.get_attribute(".went button:has-text('Easy')", "aria-pressed") == "true"
+    page.click(".simple .rows li:nth-child(2) .row")
+    assert not page.query_selector(".rows li.done"), "untick left it done"
+    while page.query_selector(".simple .rows > li:not(.done):not(.went)"):
+        page.click(".simple .rows > li:not(.done):not(.went) .row >> nth=0")
+        page.wait_for_timeout(30)
+    check("simple-done")
+    page.click("button:has-text('Finish')")
+    page.wait_for_url(base + "/")
+    store.save_person("bo", style="guided")
+
+
 def check_sending(page) -> None:
     """Results wait out a lost connection, and one that is refused doesn't hold up the rest."""
     def unsent() -> str:
@@ -309,6 +344,28 @@ def drag(page, start, end) -> None:
     page.wait_for_timeout(120)
 
 
+def check_touch_drag(page) -> None:
+    """On a phone a swipe over a block scrolls, and a block moves only once held."""
+    def touch(kind: str, x: float, y: float) -> None:
+        page.dispatch_event(".block .grip >> nth=0", kind, {
+            "pointerType": "touch", "pointerId": 7, "clientX": x, "clientY": y,
+            "isPrimary": True, "bubbles": True})
+
+    box = page.locator(".block .grip").first.bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    touch("pointerdown", x, y)
+    page.wait_for_timeout(60)
+    touch("pointermove", x, y + 40)
+    page.wait_for_timeout(400)
+    assert not page.query_selector(".ghost"), "a swipe picked a block up"
+    touch("pointerup", x, y + 40)
+    touch("pointerdown", x, y)
+    page.wait_for_timeout(400)
+    assert page.query_selector(".ghost"), "holding didn't pick it up"
+    touch("pointercancel", x, y)
+    assert not page.query_selector(".ghost")
+
+
 def drag_about(page, app, base: str, workout: int, check) -> None:
     """Drag the builder's blocks: reorder, join, pull apart, drag one in, and undo."""
     def options() -> list[list[str]]:
@@ -325,6 +382,7 @@ def drag_about(page, app, base: str, workout: int, check) -> None:
     page.set_viewport_size({"width": 1280, "height": 720})
     page.goto(f"{base}/workouts/{workout}")
     page.wait_for_selector(".block")
+    check_touch_drag(page)
     arms = ["deadlift", "curl", "shoulder-press"]
     expect([["rower"], arms, ["rower"]], "start")
     drag(page, page.locator(".block .grip").first, page.locator("[data-gap='2']"))
@@ -443,6 +501,7 @@ def main() -> None:
             (f"/music/{mix}/all", "stage-one"), (f"/music/{mix}/all/add", "playlists"),
             (f"/music/{mix}/settings", "mix-name"), ("/heart", "heart"), ("/spotify", "spotify"),
             ("/spotify/devices", "devices"), ("/theme", "theme"),
+            ("/setup/style", "style"), ("/adjust?minutes=60", "adjust"),
         ):
             visit(path, name)
         page.goto(f"{base}/history?view=progress")
@@ -541,6 +600,7 @@ def main() -> None:
         check("session-finish")
         page.click("button:has-text('Finish')")
         page.wait_for_url(base + "/")
+        check_simple(page, base, store, app, check)
         print("errors:", errors, "| problems:", check.problems)
         browser.close()
 

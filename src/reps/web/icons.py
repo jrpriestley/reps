@@ -106,11 +106,9 @@ def _png(size: int, rows: list[bytes]) -> bytes:
 
 
 def manifest() -> str:
-    icons = [
-        {"src": f"/icon-{size}.png", "sizes": f"{size}x{size}", "type": "image/png"}
-        for size in ICON_SIZES
-    ]
+    # No icons, here or on the page: on a home screen an iPhone then draws its letter, an R,
+    # which is liked better (it took a page's tab icon for want of one).
     return json.dumps(
         {"name": "reps", "short_name": "reps", "display": "standalone", "start_url": "/",
-         "background_color": "#121211", "icons": icons}
+         "background_color": "#121211"}
     )

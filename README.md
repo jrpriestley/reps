@@ -20,6 +20,7 @@ The pictures use made-up data.
 - **Built or described workouts**: drag blocks together, or type "25 min cardio using the rower
   and treadmill, then 20 min upper body". Simple phrases are parsed locally. The rest goes to
   Claude, which may choose only from allowed blocks, with everything it returns checked again.
+- **Guided or simple**: one set at a time with timers, or the whole workout as a list to tick off.
 - **Intervals and timers** that survive a locked phone, pauses, and a lost connection.
 - **Heart rate** over Bluetooth LE, and **Spotify** playlists that change with the stage.
 - **History and progress**, full JSON export, and nightly encrypted copies off the server.

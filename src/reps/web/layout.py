@@ -69,7 +69,6 @@ def page(title: str, body: str, scripts: tuple[str, ...] = (), css: str = "") ->
         'media="(prefers-color-scheme: dark)">'
         '<meta name="apple-mobile-web-app-title" content="reps">'
         '<link rel="manifest" href="/manifest.webmanifest">'
-        '<link rel="icon" href="/icon-192.png"><link rel="apple-touch-icon" href="/icon-180.png">'
         f'{fonts}<link rel="stylesheet" href="/app.css?v={version}">'
         f"<title>{html.escape(title)} · reps</title>{loaded}</head>"
         f'<body class="{css}">{body}</body></html>'

@@ -224,6 +224,10 @@ function targetWords(item, [load, amount]) {
 // Drawing ---------------------------------------------------------------------
 
 function draw() {
+  if (session.simple) {
+    drawSimple();
+    return;
+  }
   const item = current();
   app.replaceChildren();
   app.className = item?.tone ?? "cooldown";
@@ -496,6 +500,94 @@ function drawFinish() {
     element("div", { class: "s-name" }, done.length ? "All done" : "Nothing logged"),
     element("section", { class: "panel scroll grow" }, list),
     element("button", { class: "primary s-log", onclick: finish }, "Finish"), strip());
+}
+
+// Simple: the whole list, each ticked off as done as planned. No timers, and no screen per set.
+let ticked = null; // the one just ticked, which offers how it went
+
+function amounts(item) {
+  if (item.kind === "cardio") {
+    return `${Math.round(item.sets[0][1] / 60)} min`;
+  }
+  const counts = item.sets.map(([, amount]) => amount);
+  const unit = item.kind === "time" ? "s" : "";
+  return counts.every((count) => count === counts[0])
+    ? `${counts.length}×${counts[0]}${unit}` : counts.join(" ") + unit;
+}
+
+function simpleUnder(item) {
+  const [load] = item.sets[0];
+  if (item.kind === "cardio") {
+    return item.cue || "";
+  }
+  return load ? `${pounds(load)}${item.per_side ? ", each side" : ""}`
+    : item.per_side ? "Each side" : "";
+}
+
+function drawSimple() {
+  app.replaceChildren();
+  app.className = "simple";
+  const list = element("ul", { class: "rows" });
+  for (const item of session.items) {
+    const done = setsOf(item).length >= item.sets.length;
+    const under = simpleUnder(item);
+    list.append(element("li", { class: `${item.tone}${done ? " done" : ""}` },
+      element("button", {
+        class: "row", "aria-pressed": String(done), onclick: () => toggle(item),
+      },
+      element("span", { class: "tick", "aria-hidden": "true" }),
+      element("span", { class: "words" }, element("span", { class: "name" }, item.name),
+        ...(under ? [element("span", { class: "under" }, under)] : [])),
+      element("span", { class: "big-amount" }, amounts(item)))));
+    if (done && ticked === item.key && item.kind !== "cardio") {
+      list.append(howItWent(item));
+    }
+  }
+  const left = session.items.filter((item) => setsOf(item).length < item.sets.length).length;
+  app.append(header(null),
+    element("div", { class: "s-name" }, session.title),
+    element("p", { class: "muted s-left" }, left ? `${left} to go. Tap each as it's done.`
+      : "All done."),
+    element("section", { class: "panel scroll grow" }, list),
+    element("button", { class: `${left ? "" : "primary "}s-log`, onclick: finish }, "Finish"),
+    strip());
+  showUnsent();
+  document.dispatchEvent(new Event("session-drawn"));
+}
+
+// Optional: unanswered, it counts as two more in reserve, which lets weights rise slowly.
+function howItWent(item) {
+  const chosen = stateOf(item).rir;
+  const choices = [[4, "Easy"], [2, "Fine"], [0, "Hard"]].map(([value, label]) =>
+    element("button", {
+      "aria-pressed": String(chosen === value),
+      onclick: () => { record({ type: "rir", item: item.key, value }); drawSimple(); },
+    }, label));
+  return element("li", { class: "went" }, element("span", { class: "muted" }, "How was it?"),
+    element("div", { class: "segments" }, ...choices));
+}
+
+function toggle(item) {
+  unlockSound();
+  const sets = setsOf(item);
+  if (sets.length >= item.sets.length) {
+    for (const set of sets) {
+      record({ type: "unset", item: item.key, target: set.cid });
+    }
+    ticked = null;
+  } else {
+    item.sets.forEach(([load, amount], n) => {
+      if (!sets.some((set) => set.n === n)) {
+        record({ type: "set", item: item.key, n, load, amount, incline: item.incline ?? 0 });
+      }
+    });
+    if (item.kind !== "cardio") {
+      record({ type: "rir", item: item.key, value: 2 });
+    }
+    ticked = item.key;
+    sound("log");
+  }
+  drawSimple();
 }
 
 function timerRow() {
@@ -916,12 +1008,14 @@ const SOUNDS = {
   done: [[0, 523, 0.14], [0.14, 659, 0.14], [0.28, 784, 0.14], [0.42, 1047, 0.45]],
 };
 const LOUD = 0.95;
+const LEVELS = { loud: 1, quiet: 0.3, off: 0 }; // as each person chose in Me
 const QUIETER = { log: 0.4, done: 0.5 };
 const BUZZES = { tick: 30, log: 20, on: [160, 60, 160], off: 220, end: [200, 100, 200] };
 
 function sound(name) {
   navigator.vibrate?.(BUZZES[name] ?? [80, 40, 80]);
-  if (!audio) {
+  const level = LEVELS[session?.sounds] ?? 1;
+  if (!audio || !level) {
     return;
   }
   for (const [at, pitch, length] of SOUNDS[name]) {
@@ -930,8 +1024,9 @@ function sound(name) {
     const start = audio.currentTime + at;
     tone.type = "square";
     tone.frequency.value = pitch;
-    volume.gain.setValueAtTime(QUIETER[name] ?? LOUD, start);
-    volume.gain.setValueAtTime(QUIETER[name] ?? LOUD, start + length * 0.7);
+    const loudness = (QUIETER[name] ?? LOUD) * level;
+    volume.gain.setValueAtTime(loudness, start);
+    volume.gain.setValueAtTime(loudness, start + length * 0.7);
     volume.gain.exponentialRampToValueAtTime(0.001, start + length);
     tone.connect(volume).connect(audio.destination);
     tone.start(start);

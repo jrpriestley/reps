@@ -8,6 +8,9 @@ const EDGE = 56; // how near the frame's edge a drag starts to scroll it
 const EDGE_STEP = 6;
 const TOWARDS = 24;
 const STARTS_AFTER = 5; // pixels, so a tap on a grip is not a drag
+// A finger must hold still this long to pick a block up, so a swipe over the blocks scrolls.
+const HOLD_MS = 280;
+const STRAYS = 10; // pixels a finger may wander while holding
 
 let blocks = JSON.parse(document.getElementById("blocks").textContent);
 let drag = null;
@@ -113,12 +116,29 @@ function begin(event) {
   if (!grip || event.button > 0 || drag) {
     return;
   }
-  event.preventDefault();
   drag = {
     source: sourceOf(grip), grip, pointer: event.pointerId, x: event.clientX, y: event.clientY,
-    ghost: null, target: null,
+    ghost: null, target: null, holding: null,
   };
-  grip.setPointerCapture(event.pointerId);
+  if (event.pointerType === "mouse") {
+    event.preventDefault();
+    grip.setPointerCapture(event.pointerId);
+    return;
+  }
+  drag.at = { x: event.clientX, y: event.clientY };
+  drag.holding = setTimeout(() => {
+    drag.holding = null;
+    lift();
+    drag.ghost.style.transform = `translate(${drag.at.x - drag.offset.x}px, `
+      + `${drag.at.y - drag.offset.y}px)`;
+  }, HOLD_MS);
+}
+
+// Once a block is up, the finger moves it and the page stays still.
+function holdStill(event) {
+  if (drag?.ghost) {
+    event.preventDefault();
+  }
 }
 
 function lift() {
@@ -139,8 +159,16 @@ function move(event) {
   if (!drag || event.pointerId !== drag.pointer) {
     return;
   }
+  const wandered = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
+  if (drag.holding) {
+    if (wandered > STRAYS) { // a swipe: let it scroll
+      clearTimeout(drag.holding);
+      drag = null;
+    }
+    return;
+  }
   if (!drag.ghost) {
-    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < STARTS_AFTER) {
+    if (wandered < STARTS_AFTER) {
       return;
     }
     lift();
@@ -180,6 +208,7 @@ function end(event) {
     return;
   }
   const { source, target, ghost } = drag;
+  clearTimeout(drag.holding);
   ghost?.remove();
   source.node.classList.remove("lifted");
   target?.node?.classList.remove("into");
@@ -262,5 +291,6 @@ document.addEventListener("pointerdown", begin);
 document.addEventListener("pointermove", move);
 document.addEventListener("pointerup", end);
 document.addEventListener("pointercancel", end);
+document.addEventListener("touchmove", holdStill, { passive: false });
 document.addEventListener("keydown", nudge);
 requestAnimationFrame(scrollNearEdge);

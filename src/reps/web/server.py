@@ -244,6 +244,19 @@ class App:
         profile = self.store.profile(person, order.minutes)
         return generate(profile, order, self.store.history(person), today)
 
+    def today_plan(
+        self, person: str, today: dt.date, minutes: int
+    ) -> tuple[Session, dict | None, dict | None]:
+        """Return today's plan, and the saved workout or the order it came from, if either."""
+        order = self.store.picked_order(person, today)
+        pick = None if order else self.store.picked(person, today)
+        plan = self.custom(person, pick, today) if pick else None
+        if order:
+            plan = self.generated(person, Order.read(order), today)
+        if plan is None or not plan.items:  # nothing picked, or nothing in it can be done now
+            order, pick, plan = None, None, self.plan(person, minutes, today)
+        return plan, pick, order
+
     def custom(self, person: str, workout: dict, today: dt.date) -> Session:
         profile = self.store.profile(person, self.usual_minutes(person, today))
         counts = bool(workout["counts"])
@@ -464,6 +477,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             words = next((each["words"] for each in store.prompts(person)
                           if str(each["id"]) == wanted), "")
             self.send_page(self.describe_form(person, path == LATER, words))
+        elif path == "/adjust":
+            self.send_page(self.adjust_form(person, query))
         elif path == "/weights":
             self.send_page(self.weights_form(person))
         elif path == "/gym":
@@ -543,13 +558,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def today(self, person: str, query: dict[str, str], today: dt.date) -> None:
         usual = self.app.usual_minutes(person, today)
         minutes = clamp_minutes(query.get("minutes", ""), usual)
-        order = self.app.store.picked_order(person, today)
-        pick = None if order else self.app.store.picked(person, today)
-        plan = self.app.custom(person, pick, today) if pick else None
-        if order:
-            plan = self.app.generated(person, Order.read(order), today)
-        if plan is None or not plan.items:  # nothing picked, or nothing in it can be done now
-            order, pick, plan = None, None, self.app.plan(person, minutes, today)
+        plan, pick, order = self.app.today_plan(person, today, minutes)
         active = self.app.store.active(person) is not None
         done = self.app.store.done_since(person, week_start(today))
         counted = sum(row["kind"] != "extra" for row in done)
@@ -565,7 +574,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if active is None:
             self.send_json({"error": "no session"}, 404)
             return
-        plan = json.loads(active["plan"])
+        plan, setup = json.loads(active["plan"]), store.person(person)
         profile = store.profile(person, plan["minutes"])
         for item in plan["items"]:
             exercise = EXERCISES.get(item["key"])
@@ -589,6 +598,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "sets": [dict(row) for row in store.logged(active["id"])],
             "states": store.states(active["id"]),
             "paused": active["paused_at"] is not None,
+            "simple": setup["style"] == "simple",
+            "sounds": setup["sounds"],
         })
 
     def do_POST(self) -> None:  # noqa: N802 (stdlib name)
@@ -644,6 +655,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                  "Secure; SameSite=Lax")
         elif path == "/start":
             self.start(person, form)
+        elif path == "/adjust":
+            self.adjust(person, form)
         elif path == "/weights":
             self.save_weights(person, form)
             self.redirect("/weights")
@@ -834,6 +847,53 @@ class Handler(http.server.BaseHTTPRequestHandler):
             groups += [(label, found)] if found else []
         return pages.weights_page(person, groups, profile.reps)
 
+    def adjust_form(self, person: str, query: dict[str, str]) -> str:
+        """Return today's weights and reps, to change before starting."""
+        store, today = self.app.store, dt.date.today()
+        minutes = clamp_minutes(query.get("minutes", ""), self.app.usual_minutes(person, today))
+        plan, pick, order = self.app.today_plan(person, today, minutes)
+        profile = store.profile(person, minutes)
+        lifts = {}  # once each, though a plan may have one twice
+        for item in plan.items:
+            exercise = EXERCISES.get(custom.base_key(item.key))
+            if exercise and exercise.kind == "load" and exercise.key not in lifts:
+                lifts[exercise.key] = {
+                    "key": exercise.key, "name": exercise.name, "now": item.sets[0][0],
+                    "loads": profile.gym.loads(exercise, profile.body_kg),
+                }
+        if pick or order:
+            reps = pick["reps"] if pick else Order.read(order).reps
+            usual = ui.usual_reps(0, profile.reps)
+        else:
+            reps, usual = profile.reps, "Coach's choice"
+        whose = "this workout's" if pick or order else "your usual, from now on"
+        return pages.adjust_page(person, minutes, list(lifts.values()), reps, usual, whose)
+
+    def adjust(self, person: str, form: dict[str, list[str]]) -> None:
+        """Keep the weights changed for next time too, and the reps where they belong."""
+        store, today = self.app.store, dt.date.today()
+        usual = self.app.usual_minutes(person, today)
+        minutes = clamp_minutes(form.get("minutes", [""])[0], usual)
+        _plan, pick, order = self.app.today_plan(person, today, minutes)
+        reps = read_reps(form)
+        if pick:
+            store.save_workout(person, pick | {"reps": reps})
+        elif order:
+            store.pick_generated(person, replace(Order.read(order), reps=reps).as_dict())
+        else:
+            store.save_person(person, reps=reps)
+        profile = store.profile(person, minutes)
+        for key, values in form.items():
+            exercise = EXERCISES.get(key.removeprefix("load-"))
+            if not key.startswith("load-") or exercise is None or exercise.kind != "load":
+                continue
+            offered = profile.gym.loads(exercise, profile.body_kg)
+            load = next((each for each in offered if f"{each:g}" == values[0]), None)
+            was = form.get(f"was-{exercise.key}", [""])[0]
+            if load is not None and values[0] != was:
+                store.set_weight(person, exercise.key, load, reps or profile.reps)
+        self.redirect(f"/?minutes={minutes}")
+
     def save_weights(self, person: str, form: dict[str, list[str]]) -> None:
         """Keep the weights that were changed on the page, and only those."""
         profile = self.app.store.profile(person, 45)
@@ -876,15 +936,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         said = " ".join(part for part in (said, eased) if part)
         if not problem and not blocks:
             problem = "Nothing in that fits your equipment."
-        if not problem and len(app.store.workouts(person)) >= workout_pages.MOST_WORKOUTS:
+        # In Simple, one described on Today is for now, and saved only if they ask.
+        kept = later or app.store.person(person)["style"] != "simple"
+        if not problem and kept and len(app.store.workouts(person)) >= workout_pages.MOST_WORKOUTS:
             problem = "You have as many saved workouts as fit. Delete one first."
         if problem:
             self.send_page(self.describe_form(person, later, words, problem), 400)
             return
         name = " ".join((name or words).split())[:workout_pages.NAME_LENGTH].strip() or "Workout"
-        number = app.store.add_workout(person, name)
+        number = app.store.add_workout(person, name, kept)
         app.store.save_workout(person, app.store.workout(person, number) | {"blocks": blocks})
         app.store.save_talk(person, number, [{"you": words, "note": said}])
+        if not kept:
+            app.store.pick_workout(person, number)
+            self.redirect("/")
+            return
         tail = f"?said={urllib.parse.quote(said)}" if said else ""
         self.redirect(f"/workouts/{number}{tail}")
 
@@ -982,6 +1048,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.post_refine(person, workout, form)
             case ["prompt"]:
                 self.save_prompt(person, workout)
+            case ["keep"]:
+                if len(store.workouts(person)) < workout_pages.MOST_WORKOUTS:
+                    store.keep_workout(person, workout["id"])
+                self.redirect("/" if workout["kept"] else base)
             case ["delete"]:
                 store.delete_workout(person, workout["id"])
                 self.redirect("/workouts")
@@ -1474,6 +1544,12 @@ def read_setup(
         return {"days": days}, "" if enough else "Pick three days or more."
     if step == "body":
         return _read_body(form)
+    if step == "style":
+        style, sounds = form.get("style", [""])[0], form.get("sounds", [""])[0]
+        return {
+            "style": style if style in pages.STYLES else setup["style"],
+            "sounds": sounds if sounds in pages.SOUNDS else setup["sounds"],
+        }, ""
     avoid = [key for key in PATTERNS if key in form.get("avoid", [])]
     hurts = [key for key in setup["hurts"] if key in form.get("hurts", [])]
     return {"avoid": avoid, "hurts": hurts}, ""

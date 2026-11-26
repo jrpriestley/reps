@@ -147,6 +147,11 @@ MIGRATIONS = [
     """
     ALTER TABLE person ADD COLUMN hold INTEGER NOT NULL DEFAULT 0;  -- weights go up if they say
     """,
+    """
+    ALTER TABLE person ADD COLUMN style TEXT NOT NULL DEFAULT 'guided';  -- or 'simple'
+    ALTER TABLE person ADD COLUMN sounds TEXT NOT NULL DEFAULT 'loud';  -- 'quiet', 'off'
+    ALTER TABLE workout ADD COLUMN kept INTEGER NOT NULL DEFAULT 1;  -- 0: described for now
+    """,
 ]
 
 
@@ -317,15 +322,20 @@ class Store:
 
     # Built workouts -----------------------------------------------------------
 
-    def workouts(self, person: str) -> list[dict]:
-        found = self.rows("SELECT * FROM workout WHERE person = ? ORDER BY name, id", person)
+    def workouts(self, person: str, every: bool = False) -> list[dict]:
+        """Return the saved workouts, and with ``every`` the one described just for now too."""
+        found = self.rows(
+            "SELECT * FROM workout WHERE person = ? AND kept >= ? ORDER BY name, id",
+            person, 0 if every else 1,
+        )
         return [
             dict(row) | {"blocks": json.loads(row["blocks"]), "talk": json.loads(row["talk"])}
             for row in found
         ]
 
     def workout(self, person: str, number: int) -> dict | None:
-        return next((each for each in self.workouts(person) if each["id"] == number), None)
+        found = self.workouts(person, every=True)
+        return next((each for each in found if each["id"] == number), None)
 
     def pick_workout(self, person: str, number: int | None) -> None:
         self.save_person(person, pick=number, made=0, picked_at=time.time())
@@ -354,8 +364,15 @@ class Store:
             return None
         return setup["ordered"]
 
-    def add_workout(self, person: str, name: str) -> int:
-        return self.run("INSERT INTO workout (person, name) VALUES (?, ?)", person, name)
+    def add_workout(self, person: str, name: str, kept: bool = True) -> int:
+        if not kept:  # one described just for now replaces the last
+            self.run("DELETE FROM workout WHERE person = ? AND kept = 0", person)
+        return self.run(
+            "INSERT INTO workout (person, name, kept) VALUES (?, ?, ?)", person, name, int(kept)
+        )
+
+    def keep_workout(self, person: str, number: int) -> None:
+        self.run("UPDATE workout SET kept = 1 WHERE id = ? AND person = ?", number, person)
 
     def save_workout(self, person: str, workout: dict) -> None:
         self.run(

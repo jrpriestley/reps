@@ -310,6 +310,7 @@ a.row:hover, button.row:hover { background: var(--surface-2); }
 .setup > section.top { align-content: start; }
 .check { display: flex; align-items: center; gap: 0.8rem; min-height: 48px; cursor: pointer; }
 .check span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.under-check { margin: -0.6rem 0 0.5rem 2.25rem; font-size: 0.85rem; }
 .check input { width: 1.45rem; height: 1.45rem; accent-color: var(--accent); flex: none;
   margin: 0; }
 .pick { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
@@ -361,7 +362,7 @@ label.panel.pick { padding: 0.2rem 0.9rem; }
   border: 1px solid var(--border); border-left: 6px solid var(--tone);
   border-radius: var(--radius); box-shadow: var(--shadow); }
 .grip { min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--muted);
-  touch-action: none; cursor: grab; }
+  touch-action: pan-y; -webkit-touch-callout: none; cursor: grab; }
 .grip .icon { width: 1.5rem; height: 1.5rem; stroke-width: 3.2; }
 .cards { min-width: 0; display: flex; align-items: stretch; }
 .step { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -420,8 +421,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   .palette h2:first-child { margin-top: 0; }
 }
 .piece, .piece:hover { width: 100%; min-height: 44px; margin-bottom: 4px; padding: 0 0.7rem;
-  justify-content: flex-start; text-align: left; border-radius: 12px; touch-action: none;
-  cursor: grab; border-left: 5px solid var(--tone); }
+  justify-content: flex-start; text-align: left; border-radius: 12px; touch-action: pan-y;
+  -webkit-touch-callout: none; cursor: grab; border-left: 5px solid var(--tone); }
 .piece .icon { color: var(--muted); stroke-width: 3; }
 .toast { position: fixed; z-index: 7; left: 50%; bottom: 9.2rem; transform: translateX(-50%);
   display: flex; align-items: center; gap: 0.9rem; padding: 0.2rem 0.4rem 0.2rem 1.1rem;
@@ -626,6 +627,23 @@ body.session:has(.s-live:not(.spare)) .s-head .heart { display: none; }
   body.session:has(.s-live) .s-head .heart { display: none; }
 }
 body.session .s-head .heart { color: var(--flatout); font-size: 1.45rem; white-space: pre; }
+/* Simple: the list ticked off, and the heart rate small. */
+#app.simple { --tone: var(--lifting); }
+#app.simple .s-head .heart { font-size: 1rem; }
+.s-left { margin: 0; }
+.simple .rows li { flex-wrap: wrap; }
+.simple .row { gap: 0.8rem; }
+.tick { flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+  border: 2px solid var(--tone); display: grid; place-items: center; }
+.done .tick { background: var(--tone); }
+.done .tick::after { content: ""; width: 0.45rem; height: 0.8rem; margin-top: -0.15rem;
+  border: solid var(--surface); border-width: 0 3px 3px 0; transform: rotate(45deg); }
+.simple .done .name { color: var(--muted); }
+.went { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.3rem 0.9rem 0.6rem 3.4rem; border-top: 0 !important; }
+.went [aria-pressed="true"] { background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow); }
+
 .s-phase.on { background: var(--flatout); color: #ffffff; }
 .s-phase.off { background: var(--steady); color: #ffffff; }
 :root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="forest"]) .s-phase:is(.on, .off) { color: #10201d; }

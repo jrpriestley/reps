@@ -46,6 +46,11 @@ from reps.web.ui import (
 
 COPIES_LATE = 3 * 24 * 3600  # seconds; one or two missed nights mend themselves
 DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+STYLES = {
+    "guided": ("Guided", "One set at a time, with timers and rests."),
+    "simple": ("Simple", "The whole list on one screen: tick each off as it's done."),
+}
+SOUNDS = {"loud": "Loud beeps", "quiet": "Quiet beeps", "off": "No beeps"}
 EXPERIENCE = {
     "new": "New: two sets of everything",
     "returning": "Returning: three sets, starting light",
@@ -112,11 +117,17 @@ def today_page(
         action, control = _start_coached(plan), _minutes_stepper(plan)
     chosen = pick is not None or generated
     here = "/?" if chosen else f"/?minutes={plan.minutes}&"
+    for_now = pick is not None and not pick["kept"]
     eyebrow = "Generated for today" if generated else "Saved workout" if pick else "Coach's plan"
+    eyebrow = "Described for now" if for_now else eyebrow
     more = ""
+    if not active:
+        more = f'<a class="flip" href="/adjust?minutes={plan.minutes}">Adjust</a>'
     if generated and not active:
-        more = _small_button("/generate/another", "Another")
+        more += _small_button("/generate/another", "Another")
         more += _small_button("/generate/save", "Save")
+    if for_now and not active:
+        more += _small_button(f'/workouts/{pick["id"]}/keep', "Save")
     flip = here + ("" if why else "why=1")
     dots = "".join(
         f'<i class="{"on" if number < done else ""}"></i>' for number in range(CORE_SESSIONS)
@@ -132,6 +143,30 @@ def today_page(
         f'</section>{rows([item_row(item, why) for item in plan.items])}</div>'
         f'<div class="flips"><a class="flip" href="{esc(flip)}">'
         f'{"Show loads" if why else "Why these?"}</a>{more}</div>'
+    ), person)
+
+
+def adjust_page(
+    person: str, minutes: int, lifts: list[dict], reps: int, usual: str, whose: str
+) -> str:
+    """Return today's weights and reps to change. Each lift is {key, name, now, loads}."""
+    weights = "".join(
+        f'<input type="hidden" name="was-{lift["key"]}" value="{lift["now"]:g}">'
+        + select(esc(lift["name"]), f'load-{lift["key"]}',
+                 [(f"{load:g}", pounds(load)) for load in lift["loads"]], f'{lift["now"]:g}')
+        for lift in lifts
+    )
+    note = (
+        f"A weight changed here is kept for next time too. Reps are {whose}."
+        if lifts else f"Nothing today takes a weight. Reps are {whose}."
+    )
+    return framed("today", "Adjust", (
+        f'{head("Adjust", "Today’s weights and reps", f"/?minutes={minutes}")}'
+        '<form method="post" action="/adjust" class="setup">'
+        f'<input type="hidden" name="minutes" value="{minutes}">'
+        f'<section class="panel scroll grow fields">{reps_select(reps, usual)}{weights}</section>'
+        f'<p class="muted note">{note}</p>'
+        '<div class="actions"><button class="primary big">Save</button></div></form>'
     ), person)
 
 
@@ -388,11 +423,12 @@ def past_session_page(person: str, store: Store, session: sqlite3.Row, sure: boo
 
 # Setup -----------------------------------------------------------------------
 
-STEPS = ("goals", "equipment", "time", "days", "body", "hurts")
+STEPS = ("goals", "equipment", "time", "days", "body", "hurts", "style")
 FIRST_STEPS = ("goals", "equipment", "time", "days", "body")
 STEP_TITLES = {
     "goals": "Goals and reps", "equipment": "Equipment", "time": "Typical time",
     "days": "Days", "body": "Experience and weight", "hurts": "Avoid",
+    "style": "Workout style",
 }
 
 
@@ -430,6 +466,8 @@ def me_page(
         row("Equipment", covered, href="/setup/equipment", mark="lift", tone="lifting"),
         row("Typical time", f"{setup['minutes']} min", href="/setup/time", mark="clock",
             tone="lifting"),
+        row("Workout style", f"{STYLES[setup['style']][0]}, {SOUNDS[setup['sounds']].lower()}",
+            href="/setup/style", mark="today", tone="lifting"),
         row("Days", " ".join(DAY_NAMES[day] for day in sorted(setup["days"])),
             href="/setup/days", mark="week", tone="lifting"),
     ]
@@ -484,6 +522,7 @@ def setup_page(person: str, step: str, setup: dict, error: str = "") -> str:
     fields = {
         "goals": _goal_fields, "equipment": _equipment_fields, "time": _time_fields,
         "days": _day_fields, "body": _body_fields, "hurts": _avoid_fields,
+        "style": _style_fields,
     }[step](setup)
     back = "" if first else "/me"
     aside = ""
@@ -513,6 +552,20 @@ def _goal_fields(setup: dict) -> str:
     ) + (
         '<p class="muted">Reps climb from here until the next weight is earned. A saved workout '
         "can have its own.</p>"
+    )
+
+
+def _style_fields(setup: dict) -> str:
+    styles = "".join(
+        check("radio", "style", key, name, key == setup["style"])
+        + f'<p class="muted under-check">{esc(about)}</p>'
+        for key, (name, about) in STYLES.items()
+    )
+    sounds = select("Sounds", "sounds", list(SOUNDS.items()), setup["sounds"])
+    return (
+        f"{styles}{sounds}"
+        '<p class="muted">In Simple, a workout you describe on Today is for now, and Save keeps'
+        " it. Adjust on Today changes weights and reps before you start.</p>"
     )
 
 
